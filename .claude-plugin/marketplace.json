@@ -1,0 +1,16 @@
+{
+  "name": "aasimsani-pr-review",
+  "metadata": {
+    "description": "Headless Claude code review"
+  },
+  "owner": {
+    "name": "Aasim Sani"
+  },
+  "plugins": [
+    {
+      "name": "pr-review",
+      "source": "./plugins/pr-review",
+      "description": "Headless Claude code review of a PR, of your local branch, or of every PR awaiting your review. Reviews are saved locally and never posted."
+    }
+  ]
+}

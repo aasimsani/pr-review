@@ -1,0 +1,9 @@
+{
+  "name": "pr-review",
+  "description": "Headless Claude code review of a specific PR, of your local branch before a push, or of every open PR awaiting your (or your teams') review. Saves structured markdown reviews with resumable Claude sessions locally, and never posts to GitHub.",
+  "version": "1.3.0",
+  "author": {
+    "name": "Aasim Sani"
+  },
+  "license": "MIT"
+}
