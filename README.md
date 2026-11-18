@@ -21,6 +21,33 @@ pr-review.sh                              # everything awaiting your review
 
 Inside Claude Code, ask for a review and the `pr-review` skill runs the script. See [`SKILL.md`](plugins/pr-review/skills/pr-review/SKILL.md) for configuration, scheduling and resuming a review, and [`examples/team-setup.md`](plugins/pr-review/examples/team-setup.md) for a full team setup with a sample review.
 
+## How it works
+
+Every mode ends in the same place: a fresh `claude -p` session with read-only tools reviews the change and writes a markdown review to your machine.
+
+```mermaid
+flowchart TD
+    subgraph modes["Three ways in"]
+        direction LR
+        T["--repo owner/name --pr N<br/>one PR, always reviewed again"]
+        B["no arguments<br/>every open PR waiting on you<br/>or one of your teams"]
+        L["--local<br/>the committed head of your branch,<br/>before a push"]
+    end
+    T --> CL["Check the PR out in a shared clone<br/>under ~/pr-reviews/repos/"]
+    B --> SK{"Has the PR's head changed<br/>since its last review?"}
+    SK -->|"no"| SKIP(["Skipped"])
+    SK -->|"yes"| CL
+    L --> WC["Read your working copy in place,<br/>against the base branch on origin.<br/>Nothing is checked out or stashed"]
+    CL --> P
+    WC --> P
+    P["Build the prompt<br/>from the panel and every lens,<br/>with repo files read from the base branch"]
+    P --> C["claude -p in a fresh session, with read-only tools<br/>It diffs against the base branch<br/>and opens each file at the head commit"]
+    C --> O(["A review in a dated folder under ~/pr-reviews,<br/>with the session id and the review's cost.<br/>Nothing is posted to GitHub"])
+    O -.->|"a follow-up question"| R["claude --resume with the saved session id"]
+```
+
+The reviewing session has none of the context of the session that wrote the code. It sees the diff, the files and the repo's review rules.
+
 ## Extending: perspectives
 
 Each review has one **panel** and any number of **lenses**, and both are plain markdown files.
@@ -29,6 +56,21 @@ Each review has one **panel** and any number of **lenses**, and both are plain m
 - **A lens** adds rules or a reviewer on top of the panel. Examples include a DATA category, an accessibility checklist, or "check every migration is reversible".
 
 The severity scale, references, fingerprints and output format never change, so reviews stay comparable whichever perspective ran.
+
+```mermaid
+flowchart LR
+    subgraph panel["One panel, the first found"]
+        direction TB
+        P1["--panel FILE<br/>this run"] -.->|"else"| P2[".pr-review/panel.md<br/>on the base branch"] -.->|"else"| P3["PANEL_FILE<br/>in the config"] -.->|"else"| P4["The built-in panel<br/>three senior engineers,<br/>then a tech lead"]
+    end
+    subgraph lenses["Every lens, in order"]
+        direction TB
+        L1["REVIEW.md<br/>on the base branch"] --> L2[".pr-review/lenses/*.md<br/>on the base branch"] --> L3["EXTRA_PROMPT_FILE<br/>in the config"] --> L4["--lens FILE<br/>this run, repeatable"]
+    end
+    panel --> PR["The prompt"]
+    lenses --> PR
+    PR --> OUT["Output that never changes<br/>a category per issue, SEC, PERF or DESIGN, plus any a lens adds<br/>a severity from Critical to Low<br/>quoted lines with a permalink at the head commit<br/>a fingerprint that stays the same across runs"]
+```
 
 ### Add a perspective
 
@@ -83,6 +125,16 @@ The script reads repo files from the **base** branch (`origin/<base>`), never fr
 
 ```bash
 bash tests/test_pr_review.sh
+```
+
+```text
+pr-review/
+├── .claude-plugin/marketplace.json     the entry that claude plugin marketplace add reads
+├── plugins/pr-review/                  the plugin that claude plugin install copies
+│   ├── skills/pr-review/SKILL.md        when and how Claude runs the script
+│   ├── skills/pr-review/pr-review.sh    the script: the three modes, the prompt, the headless run
+│   └── examples/                        a red-team panel, two lenses and a full team setup
+└── tests/test_pr_review.sh             stubs claude and gh, so the test calls no API
 ```
 
 The test stubs `claude` and `gh`, so it costs nothing and never calls GitHub.
